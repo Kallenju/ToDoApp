@@ -1,0 +1,79 @@
+// Configuration
+@import "../node_modules/bootstrap/scss/functions";
+@import "../node_modules/bootstrap/scss/variables";
+$enable-negative-margins: true !global;
+
+@import "../node_modules/bootstrap/scss/maps";
+@import "../node_modules/bootstrap/scss/mixins";
+@import "../node_modules/bootstrap/scss/utilities";
+
+// Layout & components
+@import "../node_modules/bootstrap/scss/root";
+@import "../node_modules/bootstrap/scss/reboot";
+@import "../node_modules/bootstrap/scss/type";
+@import "../node_modules/bootstrap/scss/containers";
+@import "../node_modules/bootstrap/scss/grid";
+@import "../node_modules/bootstrap/scss/forms";
+@import "../node_modules/bootstrap/scss/buttons";
+@import "../node_modules/bootstrap/scss/button-group";
+@import "../node_modules/bootstrap/scss/nav";
+@import "../node_modules/bootstrap/scss/list-group";
+
+// Helpers
+@import "../node_modules/bootstrap/scss/helpers";
+
+// Utilities
+@import "../node_modules/bootstrap/scss/utilities/api";
+
+@mixin hd {
+  @media (min-width: 1920px) {
+      @content;
+  }
+}
+
+@mixin qhd {
+  @media (min-width: 2560px) {
+      @content;
+  }
+}
+
+@mixin uhd {
+  @media (min-width: 3840px) {
+      @content;
+  }
+}
+
+html {
+  @include hd {
+    font-size: 1.37em;
+  }
+
+  @include qhd {
+    font-size: 1.83em;
+  }
+
+  @include uhd {
+    font-size: 2.74em;
+  }
+}
+
+@mixin make-container($padding-x) {
+  width: 100%;
+  padding-right: $padding-x;
+  padding-left: $padding-x;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.container-fluid-with-paddings {
+  @include make-container($padding-x: $container-padding-x);
+  @include hd {
+    @include make-container($padding-x: #{$container-padding-x * 1.37});
+  }
+  @include qhd {
+    @include make-container($padding-x: #{$container-padding-x * 1.83});
+  }
+  @include uhd {
+    @include make-container($padding-x: #{$container-padding-x * 2.74});
+  }
+}
