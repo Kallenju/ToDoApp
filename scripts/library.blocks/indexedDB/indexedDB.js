@@ -2,29 +2,28 @@
 
 class IDB {
   constructor({
-    name, keyPath, version = 1,
+    name,
+    version = 1,
   }) {
     const iDB = this;
 
     iDB.name = name;
     iDB.version = version;
     iDB.db = null;
-    iDB.keyPath = keyPath;
   }
 
-  open(store) {
+  open(stores) {
     const iDB = this;
 
     return new Promise((resolve, reject) => {
       const openRequest = window.indexedDB.open(iDB.name, iDB.version);
       openRequest.onupgradeneeded = () => {
         iDB.db = openRequest.result;
-        if (!iDB.db.objectStoreNames.contains(store)) {
-          const oStore = iDB.db.createObjectStore(store, { keyPath: iDB.keyPath });
-          oStore.transaction.oncomplete = () => resolve();
-          oStore.transaction.onerror = () => reject();
-        } else {
-          resolve();
+
+        for (const store of stores) {
+          if (!iDB.db.objectStoreNames.contains(store)) {
+            iDB.db.createObjectStore(store.name, { keyPath: store.keyPath });
+          }
         }
       };
       openRequest.onsuccess = (event) => {

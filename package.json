@@ -1,28 +1,22 @@
 {
   "private": true,
+  "description": "Here I have implemented a 'To Do' application. The feature of this application is that it is possible to switch case storage: 'localStorage', 'indexedDB', 'some server database'.",
   "scripts": {
     "lint": "eslint ./",
-    "lint:report": "eslint --format gitlab ./"
+    "lint:fix": "eslint ./ --fix",
+    "prettier": "prettier --check  --config ./.prettierrc.js ./**/*.js",
+    "prettier:fix": "prettier --write --config ./.prettierrc.js ./**/*.js",
+    "start": "node ./server/server.js"
   },
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
-    "eslint": "^7.15.0",
-    "eslint-config-airbnb-base": "^14.2.1",
-    "eslint-formatter-gitlab": "^2.1.0",
-    "eslint-plugin-import": "^2.22.1",
-    "postcss": "^8.4.14",
-    "postcss-cli": "^10.0.0",
-    "webpack": "^5.73.0",
-    "webpack-cli": "^4.10.0"
+    "@babel/eslint-parser": "^7.19.1",
+    "eslint": "8.26.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "prettier": "2.7.1"
   },
-
-"dependencies": {
-  "autoprefixer": "^10.4.7",
-  "bootstrap": "^5.2.0-beta1"
-},
-
-"browserslist": [
-  "defaults and supports css-variables"
-]
+  "dependencies": {
+    "bootstrap": "^5.2.3"
+  }
 }

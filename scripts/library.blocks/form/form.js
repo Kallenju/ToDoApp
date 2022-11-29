@@ -3,6 +3,7 @@
 /* eslint-disable import/prefer-default-export */
 
 import { defaults } from './defaults.js';
+import { extendParams } from '../commonFunctions/index.js';
 
 class Form {
   constructor(element, params = {}) {
@@ -10,22 +11,27 @@ class Form {
 
     form.form = typeof element === 'object' ? element : document.querySelector(element);
 
-    form.params = { ...defaults, ...params };
-    form.eventHandlers = [];
+    form.extendedParams = extendParams(defaults, params);
+
+    form.eventHandlers = new Map();
   }
 
-  addListener(type, elem, handler) {
+  addListener(type, elem, handler, handlerName) {
     const form = this;
+
+    form.eventHandlers.set(handlerName, handler);
 
     elem.addEventListener(type, handler);
 
     return form;
   }
 
-  removeListener(type, elem, handler) {
+  removeListener(type, elem, handlerName) {
     const form = this;
 
-    elem.removeEventListener(type, handler);
+    elem.removeEventListener(type, form.eventHandlers.get(handlerName));
+
+    form.eventHandlers.delete(handlerName);
 
     return form;
   }
@@ -44,7 +50,7 @@ class Form {
     }
   }
 
-  setListenerOnField(elem, handler) {
+  setListenerOnField(elem, handler, handlerName) {
     const form = this;
 
     const type = form.getListenerType(elem.type);
@@ -53,7 +59,7 @@ class Form {
       return;
     }
 
-    form.addListener(type, elem, handler);
+    form.addListener(type, elem, handler, handlerName);
   }
 
   getElemValue(elem) {
@@ -80,8 +86,8 @@ class Form {
 
     for (const key of Object.keys(modules)) {
       const formKey = key.toLowerCase();
-      if (Object.prototype.hasOwnProperty.call(form.params, key)) {
-        form[formKey] = new modules[key](form, form.params[key]);
+      if (Object.prototype.hasOwnProperty.call(form.extendedParams, formKey)) {
+        form[formKey] = new modules[key](form, form.extendedParams[formKey]);
       } else {
         form[formKey] = new modules[key](form);
       }

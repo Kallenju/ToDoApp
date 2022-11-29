@@ -3,45 +3,226 @@
 /* eslint-disable import/prefer-default-export */
 
 import { defaults } from './defaults.js';
+import { extendParams } from '../../../commonFunctions/index.js';
 
 class Validate {
   constructor(formObject, params = {}) {
     const validate = this;
+
+    const extendedParams = extendParams(defaults, params);
+
+    validate.extendedParams = extendedParams;
 
     validate.formObject = formObject;
     validate.form = formObject.form;
     validate.formElements = validate.form.elements;
     validate.isSubmitted = false;
     validate.fields = {};
-    validate.params = { ...defaults, ...params };
-    validate.eventHandlers = [];
+    validate.extendedParams = { ...defaults, ...extendedParams };
+    validate.callbacks = new Map();
 
     validate.setForm();
   }
 
-  bindAndPushHandler(handler) {
-    const validate = this;
-
-    const bindedHandler = handler.bind(validate);
-
-    validate.eventHandlers.push(bindedHandler);
-
-    return bindedHandler;
+  normalizeEventName(name) {
+    return name.charAt(0).toUpperCase() + name.substring(1).toLowerCase();
   }
 
-  handlerChange(event) {
+  isElementInDom(element) {
+    if (typeof element === 'undefined') {
+      return false;
+    }
+    return element.parentNode;
+  }
+
+  getFieldObject(singleFormElement) {
+    const validate = this;
+
+    return typeof singleFormElement === 'object' ? singleFormElement : validate.fields[singleFormElement];
+  }
+
+  addField(fieldName, rules, config = {}) {
+    const validate = this;
+
+    const elem = validate.formElements[fieldName];
+
+    validate.fields[fieldName] = {
+      elem,
+      rules,
+      isValid: false,
+      config,
+    };
+
+    if (validate.extendedParams.validationOnChange) {
+      validate.formObject
+        .setListenerOnField(elem, validate.validationOnFieldChange.bind(validate), 'validationOnFieldChange');
+    }
+
+    if (validate.extendedParams.validationOnBlur) {
+      validate.formObject
+        .addListener('blur', elem, validate.validationOnFieldBlur.bind(validate), 'validationOnFieldBlur');
+    }
+
+    return validate;
+  }
+
+  removeField(singleFormElement) {
+    const validate = this;
+
+    const field = validate.getFieldObject(singleFormElement);
+
+    const type = validate.formObject.getListenerType(field.elem.type);
+
+    for (const eventHandler of validate.eventHandlers) {
+      validate.formObject.removeListener(type, field.elem, eventHandler);
+    }
+
+    validate.deleteErrors(field);
+    delete validate.fields.field;
+
+    return validate;
+  }
+
+  setForm() {
+    const validate = this;
+
+    validate.form.setAttribute('novalidate', 'novalidate');
+
+    validate.formObject
+      .addListener('submit', validate.form, (event) => event.preventDefault(), 'preventDefault');
+    validate.formObject
+      .addListener('submit', validate.form, validate.validationOnSubmit.bind(validate), 'validationOnSubmit');
+  }
+
+  validationOnSubmit(event) {
+    const validate = this;
+
+    event.preventDefault();
+    validate.isSubmitted = true;
+    validate.validateOnSubmit();
+  }
+
+  validateOnSubmit() {
+    const validate = this;
+
+    if (validate.isSubmitted) {
+      for (const fieldName of Object.keys(validate.fields)) {
+        validate.validateField(fieldName);
+      }
+
+      if (validate.isFormValid()) {
+        if (validate.callbacks.has('onSuccessSubmit')) {
+          validate.callbacks.get('onSuccessSubmit')();
+        }
+        validate.refresh();
+      } else {
+        if (validate.extendedParams.errorMessages.on) {
+          validate.renderErrors();
+          validate.showErrors();
+        }
+
+        if (validate.callbacks.has('onFailSubmit')) {
+          validate.callbacks.get('onFailSubmit')();
+        }
+      }
+    }
+  }
+
+  validateField(fieldName) {
+    const validate = this;
+
+    const field = validate.fields[fieldName];
+    field.isValid = true;
+
+    for (const rule of field.rules) {
+      validate.validateFieldRule(field, rule);
+      if (!field.isValid) {
+        if (validate.extendedParams.errorMessages.on) {
+          field.errorMessage = rule.errorMessage;
+        }
+        break;
+      }
+    }
+  }
+
+  validateFieldRule(field, fieldRule) {
+    const validate = this;
+
+    const elemValue = validate.formObject.getElemValue(field.elem);
+
+    if (fieldRule.value === 'required') {
+      if (validate.formObject.isEmpty(elemValue)) {
+        field.isValid = false;
+      }
+    } else if (!fieldRule.validator(elemValue)) {
+      field.isValid = false;
+    }
+  }
+
+  isFormValid() {
+    const validate = this;
+
+    let valid = true;
+
+    for (const field of Object.values(validate.fields)) {
+      if (!field.isValid) {
+        valid = false;
+        break;
+      }
+    }
+
+    return valid;
+  }
+
+  isFieldValid(element) {
+    const validate = this;
+
+    const field = typeof element === 'object' ? element : validate.fields[element];
+
+    if (validate.extendedParams.errorMessages.on) {
+      return field.isValid && Object.prototype.hasOwnProperty.call(field, 'errorMessage');
+    }
+
+    return field.isValid;
+  }
+
+  clearFields() {
+    const validate = this;
+
+    for (const field of Object.values(validate.fields)) {
+      field.elem.value = '';
+    }
+  }
+
+  refresh() {
+    const validate = this;
+
+    validate.isSubmitted = false;
+
+    validate.clearFields();
+
+    if (validate.extendedParams.errorMessages.on) {
+      validate.renderErrors();
+      validate.deleteWrapperForMessages();
+    }
+  }
+
+  validationOnFieldChange(event) {
     const validate = this;
 
     if (!event.target) {
       return;
     }
 
-    if (validate.isSubmitted) {
-      validate.handleFieldChange(event.target);
+    if (
+      (validate.extendedParams.validateAfterSubmition && validate.isSubmitted)
+        || !validate.extendedParams.validateAfterSubmition
+    ) {
+      validate.validateOnFieldChange(event.target);
     }
   }
 
-  handleFieldChange(target) {
+  validateOnFieldChange(target) {
     const validate = this;
 
     let currentFieldName;
@@ -58,55 +239,87 @@ class Validate {
     }
 
     validate.validateField(currentFieldName);
-    validate.renderErrors(currentFieldName);
-    validate.showErrors(currentFieldName);
-  }
+    if (validate.extendedParams.errorMessages.on) {
+      validate.renderErrors(currentFieldName);
+      validate.showErrors(currentFieldName);
+    }
 
-  setForm() {
-    const validate = this;
-
-    validate.form.setAttribute('novalidate', 'novalidate');
-
-    validate.formObject
-      .addListener('submit', validate.form, (event) => event.preventDefault());
-    validate.formObject
-      .addListener('submit', validate.form, validate.bindAndPushHandler(validate.formSubmitHandler));
-  }
-
-  formSubmitHandler(event) {
-    const validate = this;
-
-    event.preventDefault();
-    validate.isSubmitted = true;
-    validate.validateHandler();
-  }
-
-  validateHandler() {
-    const validate = this;
-
-    if (validate.isSubmitted) {
-      validate.validate();
-
-      if (validate.isFormValid()) {
-        if (Object.prototype.hasOwnProperty.call(validate, 'onSuccessCallback')) {
-          validate.onSuccessCallback();
-        }
-        validate.refresh();
-      } else {
-        validate.renderErrors();
-        validate.showErrors();
-        if (Object.prototype.hasOwnProperty.call(validate, 'onFailCallback')) {
-          validate.onFailCallback();
-        }
+    if (validate.isFieldValid(currentFieldName)) {
+      if (validate.callbacks.has('onSuccessChange')) {
+        validate.callbacks.get('onSuccessChange')();
       }
+    } else if (validate.callbacks.has('onFailChange')) {
+      validate.callbacks.get('onFailChange')();
     }
   }
 
-  clearFields() {
+  validationOnFieldBlur(event) {
     const validate = this;
 
-    for (const field of Object.values(validate.fields)) {
-      field.elem.value = '';
+    if (!event.target) {
+      return;
+    }
+
+    if (
+      (validate.extendedParams.validateAfterSubmition && validate.isSubmitted)
+        || !validate.extendedParams.validateAfterSubmition
+    ) {
+      validate.validateOnFieldBlur(event.target);
+    }
+  }
+
+  validateOnFieldBlur(target) {
+    const validate = this;
+
+    let currentFieldName;
+    for (const fieldName of Object.keys(validate.fields)) {
+      const field = validate.fields[fieldName];
+      if (field.elem === target) {
+        currentFieldName = fieldName;
+        break;
+      }
+    }
+
+    if (!currentFieldName) {
+      return;
+    }
+
+    validate.validateField(currentFieldName);
+    if (validate.extendedParams.errorMessages.on) {
+      validate.renderErrors(currentFieldName);
+      validate.showErrors(currentFieldName);
+    }
+
+    if (validate.isFieldValid(currentFieldName)) {
+      if (validate.callbacks.has('onSuccessBlur')) {
+        validate.callbacks.get('onSuccessBlur')();
+      }
+    } else if (validate.callbacks.has('onFailBlur')) {
+      validate.callbacks.get('onFailBlur')();
+    }
+  }
+
+  renderErrors(singleField = null) {
+    const validate = this;
+
+    const currentField = validate.getFieldObject(singleField);
+
+    if (!singleField) {
+      for (const field of Object.values(validate.fields)) {
+        if (!field.isValid) {
+          const containerForError = validate.getContainerForErrorText(field);
+          const { errorMessage } = field;
+          containerForError.textContent = errorMessage;
+        } else {
+          validate.deleteErrors(field);
+        }
+      }
+    } else if (!currentField.isValid) {
+      const errorsContainer = validate.getContainerForErrorText(currentField);
+      const { errorMessage } = currentField;
+      errorsContainer.textContent = errorMessage;
+    } else if (currentField.isValid) {
+      validate.deleteErrors(currentField);
     }
   }
 
@@ -118,7 +331,8 @@ class Validate {
     }
 
     validate.messagesWrapper = document.createElement('div');
-    validate.messagesWrapper.classList.add(...validate.params.defaultsClasses.messagesWrapperClass);
+    validate.messagesWrapper
+      .classList.add(...validate.extendedParams.defaultsClasses.messagesWrapperClass);
 
     if (validate.form.querySelector('button')) {
       const element = validate.form.querySelectorAll('button')[validate.form.querySelectorAll('button').length - 1];
@@ -140,13 +354,7 @@ class Validate {
     }
   }
 
-  getFieldObject(singleFormElement) {
-    const validate = this;
-
-    return typeof singleFormElement === 'object' ? singleFormElement : validate.fields[singleFormElement];
-  }
-
-  getContainerForError(singleFormElement) {
+  getContainerForErrorText(singleFormElement) {
     const validate = this;
 
     const field = validate.getFieldObject(singleFormElement);
@@ -156,7 +364,7 @@ class Validate {
 
       const { errorsContainer } = field.config;
 
-      const { defaultsClasses } = validate.params;
+      const { defaultsClasses } = validate.extendedParams;
       errorsContainer.classList.add(...defaultsClasses.messageClass);
       errorsContainer.classList.add(...defaultsClasses.errorClass);
     } else {
@@ -165,37 +373,6 @@ class Validate {
     }
 
     return field.config.errorsContainer;
-  }
-
-  renderErrors(singleField = null) {
-    const validate = this;
-
-    const currentField = validate.getFieldObject(singleField);
-
-    if (!singleField) {
-      for (const field of Object.values(validate.fields)) {
-        if (!field.isValid) {
-          const containerForError = validate.getContainerForError(field);
-          const { errorMessage } = field;
-          containerForError.textContent = errorMessage;
-        } else {
-          validate.deleteErrors(field);
-        }
-      }
-    } else if (!currentField.isValid) {
-      const errorsContainer = validate.getContainerForError(currentField);
-      const { errorMessage } = currentField;
-      errorsContainer.textContent = errorMessage;
-    } else if (currentField.isValid) {
-      validate.deleteErrors(currentField);
-    }
-  }
-
-  isElementInDom(element) {
-    if (typeof element === 'undefined') {
-      return false;
-    }
-    return element.parentNode;
   }
 
   showErrors(singleFormElement = null) {
@@ -217,7 +394,7 @@ class Validate {
       }
     }
 
-    if (validate.params.allMessagesTogether) {
+    if (validate.extendedParams.errorMessages.allMessagesTogether) {
       validate.getWrapperForMessages();
 
       if (!singleFormElement) {
@@ -244,137 +421,30 @@ class Validate {
 
     const field = validate.getFieldObject(singleFormElement);
 
-    if (validate.isFieldValidAfterChange(field)) {
+    if (validate.isFieldValid(field)) {
       const { errorsContainer } = field.config;
       errorsContainer.parentNode.removeChild(errorsContainer);
       delete field.errorMessage;
     }
   }
 
-  deleteMessagesWrapper() {
+  onSuccess(callback, eventName) {
     const validate = this;
 
-    if (Object.prototype.hasOwnProperty.call(validate, 'messagesWrapper')) {
-      validate.messagesWrapper.parentNode.removeChild(validate.messagesWrapper);
-    }
-  }
+    const normalizedEventName = validate.normalizeEventName(eventName);
 
-  refresh() {
-    const validate = this;
-
-    validate.isSubmitted = false;
-
-    validate.clearFields();
-    validate.renderErrors();
-    validate.deleteMessagesWrapper();
-  }
-
-  isFormValid() {
-    const validate = this;
-
-    let valid = true;
-
-    for (const field of Object.values(validate.fields)) {
-      if (!field.isValid) {
-        valid = false;
-        break;
-      }
-    }
-
-    return valid;
-  }
-
-  isFieldValidAfterChange(element) {
-    const validate = this;
-
-    const field = typeof element === 'object' ? element : validate.fields[element];
-
-    return field.isValid && Object.prototype.hasOwnProperty.call(field, 'errorMessage');
-  }
-
-  validateFieldRule(field, fieldRule) {
-    const validate = this;
-
-    const elemValue = validate.formObject.getElemValue(field.elem);
-
-    if (fieldRule.value === 'required') {
-      if (validate.formObject.isEmpty(elemValue)) {
-        field.isValid = false;
-      }
-    } else if (!fieldRule.validator(elemValue)) {
-      field.isValid = false;
-    }
-  }
-
-  validateField(fieldName) {
-    const validate = this;
-
-    const field = validate.fields[fieldName];
-    field.isValid = true;
-
-    for (const rule of field.rules) {
-      validate.validateFieldRule(field, rule);
-      if (!field.isValid) {
-        field.errorMessage = rule.errorMessage;
-        break;
-      }
-    }
-  }
-
-  validate() {
-    const validate = this;
-
-    Object.keys(validate.fields).forEach((fieldName) => {
-      validate.validateField(fieldName);
-    });
-  }
-
-  addField(fieldName, rules, config = {}) {
-    const validate = this;
-
-    const elem = validate.formElements[fieldName];
-
-    validate.fields[fieldName] = {
-      elem,
-      rules,
-      isValid: false,
-      config,
-    };
-
-    validate.formObject
-      .setListenerOnField(elem, validate.bindAndPushHandler(validate.handlerChange));
+    validate.callbacks.set(`onSuccess${normalizedEventName}`, callback);
 
     return validate;
   }
 
-  removeField(singleFormElement) {
+  onFail(callback, eventName) {
     const validate = this;
 
-    const field = validate.getFieldObject(singleFormElement);
+    const normalizedEventName = validate.normalizeEventName(eventName);
 
-    const type = validate.formObject.getListenerType(field.elem.type);
+    validate.callbacks.set(`onFail${normalizedEventName}`, callback);
 
-    for (const eventHandler of validate.eventHandlers) {
-      validate.formObject.removeListener(type, field.elem, eventHandler);
-    }
-
-    validate.deleteErrors(field);
-    delete validate.fields.field;
-
-    return validate;
-  }
-
-  onSuccess(callback) {
-    const validate = this;
-
-    validate.onSuccessCallback = callback;
-    return validate;
-  }
-
-  onFail(callback) {
-    const validate = this;
-
-    validate.onFailCallback = callback;
     return validate;
   }
 }

@@ -6,7 +6,13 @@ const defaults = {
     messageClass: ['fs-6', 'ps-2', 'pt-1'],
     errorClass: ['text-danger', 'fw-bolder'],
   },
-  allMessagesTogether: false,
+  errorMessages: {
+    on: true,
+    allMessagesTogether: false,
+  },
+  validateAfterSubmition: true,
+  validationOnChange: true,
+  validationOnBlur: false,
 };
 
 export { defaults };

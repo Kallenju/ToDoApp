@@ -1,4 +1,7 @@
-.idea
-node_modules
+**/.vscode
 
-/dist
+**/browsersync
+
+**/node_modules
+
+**/dist
