@@ -222,17 +222,5 @@ createServer(async (req, res) => {
       `The TODO server is running. You can use it at http://localhost:${PORT}`
     );
     console.log('Press CTRL+C to stop the server');
-    console.log('Available methods:');
-    console.log(
-      `GET ${URI_PREFIX} - get to do list, query parameter owner filters by owner`
-    );
-    console.log(
-      `POST ${URI_PREFIX} - create a new to do, you need to pass an object in the request body: { name: string, owner: string, done?: boolean }`
-    );
-    console.log(`GET ${URI_PREFIX}/{toDoId} - get a to do on it ID`);
-    console.log(
-      `PATCH ${URI_PREFIX}/{toDoId} - change a to do with ID, you need to pass an object in the request body: { name?: string, owner?: string, done?: boolean }`
-    );
-    console.log(`DELETE ${URI_PREFIX}/{toDoId} - delete a to do with ID`);
   })
   .listen(PORT);
