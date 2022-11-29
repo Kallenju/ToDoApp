@@ -6,6 +6,8 @@ const path = require('path');
 const DB_FILE = path.resolve(__dirname, './db.json');
 const URI_PREFIX = '/api/todos';
 
+const PORT = 3000;
+
 class TodoApiError extends Error {
   constructor(statusCode, data) {
     super();
@@ -217,7 +219,7 @@ createServer(async (req, res) => {
 })
   .on('listening', () => {
     console.log(
-      `The TODO server is running. You can use it at http://localhost:3000`
+      `The TODO server is running. You can use it at http://localhost:${PORT}`
     );
     console.log('Press CTRL+C to stop the server');
     console.log('Available methods:');
@@ -233,4 +235,4 @@ createServer(async (req, res) => {
     );
     console.log(`DELETE ${URI_PREFIX}/{toDoId} - delete a to do with ID`);
   })
-  .listen(3000);
+  .listen(PORT);
