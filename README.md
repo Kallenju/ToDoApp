@@ -12,3 +12,11 @@ So, after reopening the page, todos from the last selected storage will be loade
 The code required for work is loaded dynamically - as needed.
 
 I've promisified `localStorage` to work the same as `indexedDB`, which I've promisified as well.
+
+## Start
+
+To run the example run the following command:
+
+```shell
+npm start
+```
